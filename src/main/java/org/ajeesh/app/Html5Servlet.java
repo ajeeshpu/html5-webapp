@@ -30,7 +30,7 @@ public class Html5Servlet extends WebSocketServlet {
 	 */
 	private static final long serialVersionUID = 1L;
 
-	protected WebSocket doWebSocketConnect(HttpServletRequest req, String resp) {
+	public WebSocket doWebSocketConnect(HttpServletRequest req, String resp) {
 		System.out.println("On server");
 		return new StockTickerSocket();
 	}
@@ -50,54 +50,52 @@ public class Html5Servlet extends WebSocketServlet {
 		start.append("}");
 		return start.toString();
 	}
-	public class StockTickerSocket implements WebSocket
-	{
+	public class StockTickerSocket implements WebSocket.OnTextMessage{
+		private Connection connection;
+		private Timer timer; 
 
-		private Outbound outbound;
-		Timer timer; 
-		public void onConnect(Outbound outbound) {
-			this.outbound=outbound;
-			timer=new Timer();
+
+		@Override
+		public void onClose(int arg0, String arg1) {
+			System.out.println("Web socket closed!");
 		}
 
-		public void onDisconnect() {
-			timer.cancel();
+		@Override
+		public void onOpen(Connection connection) {
+			this.connection=connection;
+			this.timer=new Timer();
 		}
 
-		public void onFragment(boolean arg0, byte arg1, byte[] arg2, int arg3,
-				int arg4) {
-			// TODO Auto-generated method stub
-			
-		}
-
-		public void onMessage(final byte frame, String data) {
+		@Override
+		public void onMessage(String data) {
 			if(data.indexOf("disconnect")>=0){
-				outbound.disconnect();
+				connection.close();
+				timer.cancel();
 			}else{
-				timer.schedule(new TimerTask() {
-						
-						@Override
-						public void run() {
-							try{
-								System.out.println("Running task");
-								outbound.sendMessage(frame,getMyJsonTicker());
-							}
-							catch (IOException e) {
-								e.printStackTrace();
-							}
-						}
-					}, new Date(),5000);
+				sendMessage();
 
-			}
-			
+			}			
 		}
 
-		public void onMessage(byte arg0, byte[] arg1, int arg2, int arg3) {
-			// TODO Auto-generated method stub
-			
+		private void sendMessage() {
+			if(connection==null||!connection.isOpen()){
+				System.out.println("Connection is closed!!");
+				return;
+			}
+			timer.schedule(new TimerTask() {
+					
+					@Override
+					public void run() {
+						try{
+							System.out.println("Running task");
+							connection.sendMessage(getMyJsonTicker());
+						}
+						catch (IOException e) {
+							e.printStackTrace();
+						}
+					}
+				}, new Date(),5000);
 		}
 		
 	}
-	
-
 }
